@@ -1,3 +1,5 @@
 *.csv
 *.pkl
 .venv*/
+mlflow/mlruns/
+mlflow/mlruns.db

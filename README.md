@@ -96,24 +96,103 @@ source .venv_my_proj/bin/activate
 - Корреляционная матрица числовых признаков
 - Распределение ключевых числовых признаков
 - Анализ выбросов в наиболее значимых признаках
-- Интерактивный scatter plot взаимосвязей (сохранен как HTML)
+
+Моделирование и MLflow
+
+    Все эксперименты и пайплайны реализуются в research/research.ipynb.
+
+    Для отслеживания результатов применяется MLflow (сервер запускается локально через mlflow/start_mlflow.sh)
+
+Запуск MLflow:
+
+bash
+cd mlflow
+sh start_mlflow.sh
+
+Cервер будет доступен по адресу: http://localhost:5000
+Основные этапы ML-экспериментов:
+
+    Предобработка и baseline-модель (RandomForest + масштабирование/кодировка)
+
+    Генерация расширенных признаков (PolynomialFeatures, KBinsDiscretizer)
+
+    Отбор признаков (SequentialFeatureSelector)
+
+    Автоматический тюнинг гиперпараметров (Optuna)
+
+    Логирование моделей, метрик и признаков в MLflow Model Registry
+
+    Выделение лучшей модели и финальное обучение на всей выборке с регистрацией версии Production
+
+Лучшие результаты и модель Production
+
+    Лучшая модель: RandomForestClassifier с отбором расширенных признаков и оптимальными гиперпараметрами
+
+    Метрики (пример):
+
+        F1-score: ...
+
+        Accuracy: ...
+
+        ROC-AUC: ...
+
+        Precision: ...
+
+        Recall: ...
+
+    Гиперпараметры:
+
+        n_estimators: ...
+
+        max_depth: ...
+
+        max_features: ...
+
+        random_state: 42
+
+    Использованные признаки:
+
+        age, trestbps, chol, thalach, oldpeak
+
+        sex, cp, fbs, restecg, exang, slope, thal, age_group
+
+    Production-run ID: <ваш Production Run ID>
+
+    Сохранённые артефакты:
+
+        модель, сигнатура, входные данные, файл MLmodel
+
+Подготовка Production и деплой
+
+    Для деплоя рекомендовано использовать MLflow Model Registry и локальный serving (mlflow models serve ...)
+
+    Все зарегистрированные модели и версии доступны в MLflow UI
+
 
 ## Структура проекта
 
 ```
 my_proj/
 ├── data/
-│   ├── heart-disease.csv          # Исходные данные
-│   └── clean_heart_disease.pkl    # Очищенные данные
+│   ├── clean_heart_disease.pkl      # Очищенные данные
+│   └── heart-disease.csv            # Исходные данные
 ├── eda/
-│   ├── eda.ipynb                 # Блокнот с анализом
-│   ├── target_distribution.png
+│   ├── eda.ipynb                    # Блокнот с анализом
+│   ├── target_distribution.png      # Графики для EDA
 │   ├── correlation_matrix.png
 │   ├── numeric_distributions.png
 │   ├── boxplot_outliers.png
 │   ├── static_scatter.png
 │   └── interactive_scatter.html
-├── .venv_my_proj/                # Виртуальное окружение
-├── .gitignore
-├── requirements.txt
-└── README.md
+├── mlflow/
+│   ├── mlartifacts/                 # Артефакты MLflow
+│   ├── mlruns.db                    # Хранилище экспериментов MLflow
+│   └── start_mlflow.sh              # Скрипт запуска MLflow
+├── research/
+│   ├── research.ipynb               # ML-эксперименты
+│   ├── MLmodel                      # Артефакт Production-модели
+│   ├── Снимок экрана ....png       # Скриншоты из MLflow
+├── .venv_my_proj/                   # Виртуальное окружение
+├── .gitignore                       # Исключения для Git
+├── requirements.txt                 # Зависимости проекта
+└── README.md                        # Описание и инструкция
