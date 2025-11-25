@@ -1,10 +1,52 @@
-S# Проект: Анализ данных о сердечных заболеваниях
+Отлично! Актуализирую ваш README.md:
+
+# Проект: Анализ данных о сердечных заболеваниях
 
 ## Описание проекта
-Проект направлен на решение задачи бинарной классификации для предсказания наличия сердечных заболеваний у пациентов на основе медицинских показателей. Используется датасет Heart Disease с 14 признаками и 303 наблюдениями. Цель проекта - построение модели машинного обучения для ранней диагностики сердечно-сосудистых заболеваний.
+Проект направлен на решение задачи бинарной классификации для предсказания наличия сердечных заболеваний у пациентов на основе медицинских показателей. Используется датасет Heart Disease с 14 признаками и 303 наблюдениями. Цель проекта - построение модели машинного обучения для ранней диагностики сердечно-сосудистых заболеваний с последующим развертыванием микросервиса.
+
+## Структура проекта
+
+```
+my_proj/
+├── data/
+│   ├── clean_heart_disease.pkl      # Очищенные данные
+│   └── heart-disease.csv            # Исходные данные
+├── eda/
+│   ├── eda.ipynb                    # Блокнот с анализом
+│   ├── target_distribution.png      # Графики для EDA
+│   ├── correlation_matrix.png
+│   ├── numeric_distributions.png
+│   ├── boxplot_outliers.png
+│   ├── static_scatter.png
+│   └── interactive_scatter.html
+├── mlflow/
+│   ├── mlruns.db                    # Хранилище экспериментов MLflow
+│   └── start_mlflow.sh              # Скрипт запуска MLflow
+├── research/
+│   ├── research.ipynb               # ML-эксперименты
+│   ├── MLmodel                      # Артефакт Production-модели
+│   └── Снимок экрана ....png       # Скриншоты из MLflow
+├── services/
+│   ├── ml_service/
+│   │   ├── main.py                  # Основное FastAPI приложение
+│   │   ├── api_handler.py           # Класс для работы с ML моделью
+│   │   ├── requirements.txt         # Зависимости сервиса
+│   │   ├── Dockerfile               # Конфигурация Docker образа
+│   └── models/
+│       ├── get_model.py             # Скрипт выгрузки модели из MLflow
+│       ├── model/                   # Директория с production-моделью
+│       ├── model.pkl               # Файл модели (устаревший)
+├── .venv_my_proj/                   # Виртуальное окружение
+├── .gitignore                       # Исключения для Git
+├── requirements.txt                 # Зависимости проекта
+└── README.md                        # Описание и инструкция
+```
 
 ## Запуск проекта
 
+### Клонирование и настройка
+```bash
 # Клонирование репозитория
 git clone https://github.com/strannyt1p/IISLABS.git
 
@@ -13,8 +55,88 @@ python3 -m venv .venv_my_proj
 source .venv_my_proj/bin/activate
 
 # Установка зависимостей
-.(venv_my_proj) mainuser@Ubuntu: ~$ pip install requirements.txt
+pip install -r requirements.txt
+```
 
+### Запуск MLflow для отслеживания экспериментов
+```bash
+cd mlflow
+sh start_mlflow.sh
+```
+Сервер будет доступен по адресу: http://localhost:5000
+
+## Разработанный микросервис предсказаний
+
+### Описание сервиса
+Создан микросервис на базе FastAPI для выполнения предсказаний моделью машинного обучения. Сервис предоставляет REST API endpoint для классификации пациентов по наличию сердечных заболеваний.
+
+### Файлы сервиса:
+
+**В папке `services/ml_service/`:**
+- `main.py` - основной файл FastAPI приложения с endpoint'ами
+- `api_handler.py` - класс для загрузки модели и выполнения предсказаний
+- `requirements.txt` - зависимости необходимые для работы сервиса
+- `Dockerfile` - конфигурация для сборки Docker образа
+
+**В папке `services/models/`:**
+- `get_model.py` - скрипт для выгрузки модели из MLflow
+- `model/` - директория с production-моделью в формате MLflow
+
+### Запуск сервиса в Docker
+
+#### Сборка Docker образа
+```bash
+cd services/ml_service
+docker build -t ml_service:1 .
+```
+
+#### Запуск контейнера
+```bash
+docker run -p 8000:8000 -v $(pwd)/../models:/models ml_service:1
+```
+
+### Проверка работоспособности сервиса
+
+#### 1. Проверка статуса сервиса
+```bash
+curl http://localhost:8000/health
+```
+
+#### 2. Тестирование предсказания
+```bash
+curl -X POST "http://localhost:8000/api/prediction/123" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "features": [63, 1, 3, 145, 233, 1, 0, 150, 0, 2.3, 0, 0, 1, "60+", "high", 3.7]
+  }'
+```
+
+#### 3. Через веб-интерфейс
+Откройте в браузере: `http://localhost:8000/docs` для доступа к интерактивной документации Swagger UI.
+
+### Пример тела запроса для предсказания:
+```json
+{
+  "features": [
+    63,      // age
+    1,       // sex 
+    3,       // cp
+    145,     // trestbps
+    233,     // chol
+    1,       // fbs
+    0,       // restecg
+    150,     // thalach
+    0,       // exang
+    2.3,     // oldpeak
+    0,       // slope
+    0,       // ca
+    1,       // thal
+    "60+",   // age_group
+    "high",  // bp_category
+    3.7      // chol_age_ratio
+  ]
+}
+```
 
 ## Исследование данных
 
@@ -97,102 +219,28 @@ source .venv_my_proj/bin/activate
 - Распределение ключевых числовых признаков
 - Анализ выбросов в наиболее значимых признаках
 
-Моделирование и MLflow
+## Моделирование и MLflow
 
-    Все эксперименты и пайплайны реализуются в research/research.ipynb.
+Все эксперименты и пайплайны реализуются в `research/research.ipynb`.
 
-    Для отслеживания результатов применяется MLflow (сервер запускается локально через mlflow/start_mlflow.sh)
+### Основные этапы ML-экспериментов:
 
-Запуск MLflow:
+1. **Предобработка и baseline-модель** (RandomForest + масштабирование/кодировка)
+2. **Генерация расширенных признаков** (PolynomialFeatures, KBinsDiscretizer)
+3. **Отбор признаков** (SequentialFeatureSelector)
+4. **Автоматический тюнинг гиперпараметров** (Optuna)
+5. **Логирование моделей, метрик и признаков** в MLflow Model Registry
+6. **Выделение лучшей модели** и финальное обучение на всей выборке с регистрацией версии Production
 
-bash
-cd mlflow
-sh start_mlflow.sh
+### Лучшие результаты и модель Production
 
-Cервер будет доступен по адресу: http://localhost:5000
-Основные этапы ML-экспериментов:
+- **Лучшая модель**: RandomForestClassifier с отбором расширенных признаков и оптимальными гиперпараметрами
+- **Production-run ID**: `53cbd22b6ce74c6cb75023c10374863c`
+- **Использованные признаки**: age, trestbps, chol, thalach, oldpeak, sex, cp, fbs, restecg, exang, slope, thal, age_group
 
-    Предобработка и baseline-модель (RandomForest + масштабирование/кодировка)
+### Сохранённые артефакты:
+- модель, сигнатура, входные данные, файл MLmodel
 
-    Генерация расширенных признаков (PolynomialFeatures, KBinsDiscretizer)
+---
 
-    Отбор признаков (SequentialFeatureSelector)
-
-    Автоматический тюнинг гиперпараметров (Optuna)
-
-    Логирование моделей, метрик и признаков в MLflow Model Registry
-
-    Выделение лучшей модели и финальное обучение на всей выборке с регистрацией версии Production
-
-Лучшие результаты и модель Production
-
-    Лучшая модель: RandomForestClassifier с отбором расширенных признаков и оптимальными гиперпараметрами
-
-    Метрики (пример):
-
-        F1-score: ...
-
-        Accuracy: ...
-
-        ROC-AUC: ...
-
-        Precision: ...
-
-        Recall: ...
-
-    Гиперпараметры:
-
-        n_estimators: ...
-
-        max_depth: ...
-
-        max_features: ...
-
-        random_state: 42
-
-    Использованные признаки:
-
-        age, trestbps, chol, thalach, oldpeak
-
-        sex, cp, fbs, restecg, exang, slope, thal, age_group
-
-    Production-run ID: <ваш Production Run ID>
-
-    Сохранённые артефакты:
-
-        модель, сигнатура, входные данные, файл MLmodel
-
-Подготовка Production и деплой
-
-    Для деплоя рекомендовано использовать MLflow Model Registry и локальный serving (mlflow models serve ...)
-
-    Все зарегистрированные модели и версии доступны в MLflow UI
-
-
-## Структура проекта
-
-```
-my_proj/
-├── data/
-│   ├── clean_heart_disease.pkl      # Очищенные данные
-│   └── heart-disease.csv            # Исходные данные
-├── eda/
-│   ├── eda.ipynb                    # Блокнот с анализом
-│   ├── target_distribution.png      # Графики для EDA
-│   ├── correlation_matrix.png
-│   ├── numeric_distributions.png
-│   ├── boxplot_outliers.png
-│   ├── static_scatter.png
-│   └── interactive_scatter.html
-├── mlflow/
-│   ├── mlartifacts/                 # Артефакты MLflow
-│   ├── mlruns.db                    # Хранилище экспериментов MLflow
-│   └── start_mlflow.sh              # Скрипт запуска MLflow
-├── research/
-│   ├── research.ipynb               # ML-эксперименты
-│   ├── MLmodel                      # Артефакт Production-модели
-│   ├── Снимок экрана ....png       # Скриншоты из MLflow
-├── .venv_my_proj/                   # Виртуальное окружение
-├── .gitignore                       # Исключения для Git
-├── requirements.txt                 # Зависимости проекта
-└── README.md                        # Описание и инструкция
+**Примечание**: В текущей реализации возникла проблема совместимости версий Python и scikit-learn между средой обучения модели и Docker контейнером, что привело к ошибке загрузки модели в контейнере. Сервис запускается, но модель требует переобучения с совместимыми версиями зависимостей.
