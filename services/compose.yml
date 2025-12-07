@@ -1,0 +1,73 @@
+# services/compose.yml
+version: '3.8'
+
+services:
+  # Сервис предсказаний (версия 2 с метриками)
+  ml_service:
+    build: ./ml_service
+    image: ml_service:2
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/models
+    networks:
+      - ml_network
+    restart: unless-stopped
+
+  # Сервис отправки запросов
+  requests_service:
+    build: ./requests
+    image: requests_service:1
+    depends_on:
+      - ml_service
+    networks:
+      - ml_network
+    restart: unless-stopped
+    environment:
+      - SERVICE_URL=http://ml_service:8000
+
+  # Prometheus для мониторинга
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - ml_network
+    restart: unless-stopped
+
+  # Grafana для дашбордов
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - ml_network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+# Тома для данных
+volumes:
+  prometheus_data:
+  grafana_data:
+
+# Сеть для общения между сервисами
+networks:
+  ml_network:
+    driver: bridge

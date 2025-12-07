@@ -1,5 +1,5 @@
 # Используем официальный Python образ
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 # Копируем содержимое текущей директории в /ml_service в контейнере
 COPY . /ml_service

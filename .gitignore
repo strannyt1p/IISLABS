@@ -1,8 +1,27 @@
+# Данные и модели
 *.csv
 *.pkl
+
+# Виртуальные окружения
 .venv*/
+.venv_my_proj/
+
+# MLflow
 mlflow/mlruns/
 mlflow/mlruns.db
 mlflow/mlartifacts/
+
+# Кэш и байткод
 __pycache__/
 *.pyc
+
+# Docker / compose артефакты (если появятся)
+*.log
+
+# Grafana data (volume)
+services/grafana/
+!services/grafana/dashboard.json
+
+# Прочие временные файлы (по необходимости)
+*.swp
+*.ipynb_checkpoints

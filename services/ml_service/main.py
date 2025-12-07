@@ -1,70 +1,60 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import List, Union
-import sys
-import os
+# В начале файла добавьте
+from metrics import (
+    PREDICTION_REQUESTS, PREDICTION_LATENCY, PREDICTION_VALUE,
+    ERROR_REQUESTS_4XX, ERROR_REQUESTS_5XX, SERVICE_STATUS, ACTIVE_REQUESTS,
+    generate_latest, CONTENT_TYPE_LATEST
+)
+from starlette.responses import Response
 
-# Добавляем путь к api_handler
-sys.path.append(os.path.dirname(__file__))
+# Добавьте endpoint для метрик
+@app.get("/metrics")
+def get_metrics():
+    """Endpoint для Prometheus метрик"""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
-try:
-    from api_handler import FastAPIHandler
-except ImportError as e:
-    print(f"Import error: {e}")
-    FastAPIHandler = None
-
-app = FastAPI()
-
-# Инициализация обработчика с моделью
-api_handler = None
-try:
-    print("Пытаемся инициализировать API Handler...")
-    api_handler = FastAPIHandler()
-    print("API Handler успешно инициализирован")
-except Exception as e:
-    print(f"Ошибка при инициализации API Handler: {e}")
-    import traceback
-    traceback.print_exc()
-
-# Модель данных для входных признаков - используем Union для смешанных типов
-class PredictionRequest(BaseModel):
-    features: List[Union[float, str, int]]
-
-class PredictionResponse(BaseModel):
-    item_id: int
-    price: float
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
+# Обновите health endpoint для метрик
 @app.get("/health")
 def health_check():
     """Проверка статуса сервиса и модели"""
     if api_handler is None:
+        SERVICE_STATUS.set(0)
         raise HTTPException(status_code=500, detail="Модель не загружена")
+    
+    SERVICE_STATUS.set(1)
     return {"status": "healthy", "model_loaded": True}
 
+# Обновите prediction endpoint с метриками
 @app.post("/api/prediction/{item_id}", response_model=PredictionResponse)
 def make_prediction(item_id: int, request: PredictionRequest):
+    PREDICTION_REQUESTS.inc()
+    ACTIVE_REQUESTS.inc()
+    
+    start_time = time.time()
+    
     if api_handler is None:
+        ERROR_REQUESTS_5XX.inc()
+        ACTIVE_REQUESTS.dec()
         raise HTTPException(status_code=500, detail="Модель не доступна")
     
     try:
-        # Преобразуем все элементы в правильные типы
-        processed_features = []
-        for feature in request.features:
-            if isinstance(feature, str):
-                processed_features.append(feature)
-            else:
-                processed_features.append(float(feature))
+        prediction = api_handler.predict(request.features)
         
-        # Получаем предсказание от модели
-        prediction = api_handler.predict(processed_features)
+        # Записываем метрики
+        latency = time.time() - start_time
+        PREDICTION_LATENCY.observe(latency)
+        PREDICTION_VALUE.observe(prediction)
         
-        return PredictionResponse(
-            item_id=item_id,
-            price=prediction
-        )
+        ACTIVE_REQUESTS.dec()
+        return PredictionResponse(item_id=item_id, price=prediction)
+        
+    except HTTPException as e:
+        if 400 <= e.status_code < 500:
+            ERROR_REQUESTS_4XX.inc()
+        elif 500 <= e.status_code < 600:
+            ERROR_REQUESTS_5XX.inc()
+        ACTIVE_REQUESTS.dec()
+        raise e
     except Exception as e:
+        ERROR_REQUESTS_5XX.inc()
+        ACTIVE_REQUESTS.dec()
         raise HTTPException(status_code=500, detail=f"Ошибка предсказания: {str(e)}")
